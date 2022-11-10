@@ -1,0 +1,16 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "UplandApiProd"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = ["CAPABILITY_IAM"]
+disable_rollback = true
+image_repositories = []
+parameter_overrides = [
+"UplandWebhookToken={YOUR_WEBHOOK_TOKEN}",
+"UplandApplicationAccessToken={YOUR_APPLICATION_ACCESS_TOKEN}",
+"UplandAppId={YOUR_UPLAND_APP_ID}",
+"UplandUsersTableName=UplandUsers",
+"UplandNewCodeEndpoint=https://api.prod.upland.me/developers-api/auth/otp/init"]

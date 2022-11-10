@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: |
+  Upland related API operations
+
+Parameters:
+  UplandAppId:
+    Type: String
+  UplandWebhookToken:
+    Type: String
+  UplandApplicationAccessToken:
+    Type: String
+  UplandUsersTableName:
+    Type: String
+  UplandNewCodeEndpoint:
+    Type: String
+  
+
+Globals:
+  Function:
+    Timeout: 15
+    Handler: app.lambda_handler
+    Runtime: python3.9
+
+Resources:
+
+  uplandApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: uplandApi
+      StageName: Prod
+  
+  UplandWebhook:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      CodeUri: webhook/
+      Description: Upland webhook for app registration, called when user connects to Application from Upland
+      Policies: 
+        - Version: '2012-10-17' 
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+                - dynamodb:Scan
+              Resource: !GetAtt UplandUsers.Arn
+      Environment:
+        Variables:
+          UPLAND_WEBHOOK_TOKEN: !Ref UplandWebhookToken
+          TABLE_NAME: !Ref UplandUsers
+      Events:
+        uplandWebhook:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref uplandApi
+            Path: /webhook
+            Method: post
+
+  UplandGetCode:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      CodeUri: getCode/
+      Description: Get upland one-time code for upland integration and save to database
+      Policies: 
+        - Version: '2012-10-17' 
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+              Resource: !GetAtt UplandUsers.Arn
+      Environment:
+        Variables:
+          UPLAND_APP_ID: !Ref UplandAppId
+          TABLE_NAME: !Ref UplandUsers
+          UPLAND_NEW_CODE_ENDPOINT: !Ref UplandNewCodeEndpoint
+          UPLAND_APPLICATION_ACCESS_TOKEN: !Ref UplandApplicationAccessToken
+      Events:
+        uplandGetCode:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            RestApiId: !Ref uplandApi
+            Path: /code
+            Method: get
+  
+  UplandUsers:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: !Ref UplandUsersTableName
+
+Outputs:
+  ProdDataEndpoint:
+    Description: "API Prod stage endpoint"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  GetCodeEndpoint:
+    Description: "GET endpoint for new upland code"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/code"
+  WebhookUri:
+    Description: "Webhook URI to be configured on your application at upland"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/webhook"
